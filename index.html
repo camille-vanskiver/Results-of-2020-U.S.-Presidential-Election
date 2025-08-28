@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<!--*****************************************************
+
+GEOG 414: Programming for Geospatial Data Science II
+Unit 2 Assignment: Choropleth Map
+
+This part of your Unit 2 assignment requires that you develop a choropleth map using Leaflet, a popular front-end JavaScript Web mapping framework.  You will use GeoJSON source data containing polygon geometry and attribute data to create an interactive map.
+
+Add your work directly to this document, and once complete, submit to the course website for grading.
+
+*****************************************************-->
+
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<!-- TO DO: Add a map title -->
+	<title>Unemployment Rates & Housing Costs, Washington State (2015 - 2023)</title>
+	<!-- TO DO: Import Bootstrap (first), Leaflet (second), and ColorBrewer (third) -->
+	<!doctype html>
+	<html lang="en">
+	  <head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Bootstrap demo</title>
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
+	  </head>
+	  <body>
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
+	  </body>
+	</html>
+
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+
+ <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+ integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+ crossorigin=""></script>
+
+ <script src="https://colorbrewer2.org/export/colorbrewer.js"></script>
+
+
+    <!-- TO DO: Import GeoJSON file, converted to JS file with variable declaration -->
+	 <script src="wa-unemp.js"></script>
+	<!-- -->
+    <style>
+		/* TO DO: Write custom CSS for map and legend as needed */
+		#map {
+			height: 700px;
+			margin-top: 70px;
+		}
+		#map path:hover {
+			fill: yellow;
+			stroke: yellow;
+		}
+		#legend {
+			background-color: #ffffff;
+			border: 2px solid rgba(0,0,0,0.2);
+			border-radius: 4px;
+			padding: 5x;
+		}
+		#legend-title {
+			font-weight: bold;
+			border-bottom: 1px solid rgba(0,0,0,0.2);
+			margin-bottom: 5px;
+			padding-bottom: 5px;
+		}
+		.legend-row {
+			display: table;
+		}
+		.legend-color {
+			display: table-cell;
+			width: 30px;
+			height: 30px;
+		}
+		.legend-caption {
+			display: table-cell;
+			padding-left: 5px;
+			vertical-align: middle;
+		}
+	</style>
+</head>
+<body>
+	<!-- TO DO: Create single-column Bootstrap layout with three rows: one for the map's header (title and subtitle), a second row containing the required map controls, and another containing the map itself -->
+	<div class="container">
+		<div class="row">
+			<div class="col">
+				<h3>Unemployment in Washington State (2015 - 2023)</h3>
+				<h6>Unemployment rates by percentage are reflected for each county in Washington state for the years of 2015, 2020, and 2023.</h6>
+			</div>
+		</div>
+		<hr/>
+		<div class="row">
+			<div class="col">
+				<p>Select a Data Variable:</p>
+				<select id="select-variable" class="form-select" aria-label="Data Variable Selection" onchange="drawMap()">
+					<option value="unemp_2015" selected>Unemployment Rate, 2015 (%)</option>
+					<option value="unemp_2020">Unemployment Rate, 2020 (%)</option>
+					<option value="unemp_2023">Unemployment Rate, 2023 (%)</option>
+				</select> 
+			</div>
+			<div class="col">
+				<p>Select a Color Ramp:</p>
+				<select id="select-color" class="form-select" aria-label="Data Variable Selection" onchange="drawMap()">
+					<option value="YlGnBu" selected>Yellow - Green - Blue</option>
+					<option value="RdPu">Red - Purple</option>
+					<option value="YlOrRd">Yellow - Orange - Red</option>
+				</select> 
+			</div>
+		</div>
+		<div class="row">
+			<div class="col">
+				<div id="map"></div>
+			</div>
+		</div>
+	 </div>
+    <!-- TO DO: Outside the container, create the structure of the legend -->
+	 <div id="legend">
+		<div id="legend-title"></div>
+		<div id="legend-rows"></div>
+	 </div>
+</body>
+</html>
+<script type="text/javascript">
+
+// TO DO: Write utility function to return fill color for polygons
+function fillColor(v) {
+	let colorSelect = document.getElementById("select-color");
+	let colorScheme = colorSelect.options[colorSelect.selectedIndex].value;
+
+	if (v >= 10) return colorbrewer[colorScheme][6][5];
+	else if (v >= 7.5) return colorbrewer[colorScheme][6][4];
+	else if (v >= 5) return colorbrewer[colorScheme][6][3];
+	else if (v >= 2.5) return colorbrewer[colorScheme][6][2];
+	else if (v >= 1) return colorbrewer[colorScheme][6][1];
+	else return colorbrewer[colorScheme][6][0];
+}
+
+// TO DO: Initialize the variable for the primary map data layer with a null value so that we can access this variable globally
+let datalayer = null;
+
+// TO DO: Initialize the map with an appropriate center and zoom level
+let map = L.map('map').setView([47.45578705599177, -120.64335081545737], 7);
+
+// TO DO: Add a visually appealing and unobtrusive basemap
+let basemap = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+	subdomains: 'abcd',
+	maxZoom: 20
+}).addTo(map);
+
+// TO DO: Create a function to draw the GeoJSON data layer (to be called any time the map control dropdowns are changed)
+function drawMap() {
+	let colorSelect = document.getElementById("select-color");
+	let colorScheme = colorSelect.options[colorSelect.selectedIndex].value;
+	
+	let variableSelect = document.getElementById("select-variable");
+	let selectedVariable = variableSelect.options[variableSelect.selectedIndex].value;
+	
+	if (datalayer != null) map.removeLayer(datalayer);
+
+	// TO DO WITHIN FUNCTION : Add GeoJSON data layer, using style property to apply appropriate fill color, stroke width, and stroke color.  Bind a tooltip showing variable values to each feature as well, within the pointToLayer function.
+	datalayer = L.geoJSON(waunemp, {
+		style: function(feature) {
+			return {
+				'fillColor': fillColor(feature.properties[selectedVariable]),
+				'color': fillColor(feature.properties[selectedVariable]),
+				'weight': 1
+			}
+		}
+	})
+	.bindTooltip(function(layer) {
+		return `<strong>${layer.feature.properties.county}</strong>`
+	})
+	.addTo(map);
+
+	// TO DO WITHIN FUNCTION: Create new Leaflet control and using the onAdd function, take the contents of the legend in the DOM and assign it to the new Leaflet control
+	document.getElementById("legend-title").innerHTML = variableSelect.options[variableSelect.selectedIndex].text;
+	let legendItems = '';
+	let legendLabels = ["<= 1%", " 1 - 2.5%", "2.5 - 5%", "5 - 7.5%", "7.5 - 10%", ">= 10%"];
+	for (i = 0; i <= 5; i++) {
+		legendItems = legendItems + `<div class='legend-row'><div class='legend-color' style='background-color: ${colorbrewer[colorScheme][6][i]};'></div><div class='legend-caption'>${legendLabels[i]}</div></div>`
+	}
+	document.getElementById("legend-rows").innerHTML = legendItems;
+
+	let legendControl = L.control({'position': 'bottomleft'});
+	legendControl.onAdd = function(m) {
+		return document.getElementById("legend");
+	};
+	legendControl.addTo(map);
+}
+	
+// TO DO: Call map drawing function to initialize map with default values
+drawMap();
+
+</script>
